@@ -1,0 +1,71 @@
+"""Response validation and retry logic for translation batches."""
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+MAX_RETRIES = 3
+
+
+def validate_batch_response(
+    response_text: str,
+    expected_count: int,
+) -> tuple[bool, list[str]]:
+    """Validate LLM response: check line count matches expected.
+
+    Args:
+        response_text: Raw response from DeepSeek.
+        expected_count: Number of translated lines expected.
+
+    Returns:
+        (is_valid, parsed_lines)
+    """
+    lines = [line.strip() for line in response_text.strip().split("\n")]
+    lines = [line for line in lines if line]
+
+    if len(lines) != expected_count:
+        logger.warning(
+            "Translation count mismatch: got %d lines, expected %d",
+            len(lines),
+            expected_count,
+        )
+        return False, lines
+
+    return True, lines
+
+
+def translate_with_retry(
+    translator_fn,
+    entries: list[str],
+    system_prompt: str,
+    batch_prompt_template: str,
+) -> list[str]:
+    """Call translator with automatic retry on validation failure.
+
+    Returns list of translated lines. Raises RuntimeError if all retries fail.
+    """
+    expected = len(entries)
+
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            response = translator_fn(entries, system_prompt, batch_prompt_template)
+            is_valid, lines = validate_batch_response(response, expected)
+
+            if is_valid:
+                return lines
+
+            logger.warning(
+                "Validation failed on attempt %d/%d. Retrying...",
+                attempt,
+                MAX_RETRIES,
+            )
+
+        except Exception as e:
+            logger.error("API error on attempt %d/%d: %s", attempt, MAX_RETRIES, str(e))
+            if attempt == MAX_RETRIES:
+                raise
+
+    raise RuntimeError(
+        f"Translation failed after {MAX_RETRIES} retries. "
+        f"Checkpoint saved — you can resume from this point."
+    )
