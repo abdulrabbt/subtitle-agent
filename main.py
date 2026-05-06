@@ -2,7 +2,7 @@
 
 Usage:
     python main.py input/TheMatrix.srt output/TheMatrix.ar.srt
-    python main.py TheMatrix.srt TheMatrix.ar.srt
+    python main.py TheMatrix.srt TheMatrix.ar.srt --debug
 """
 
 import sys
@@ -11,21 +11,29 @@ from pathlib import Path
 
 from src.agent import run_translation
 
+# Set up root logger — level will be adjusted by --debug flag
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-7s | %(message)s",
     datefmt="%H:%M:%S",
 )
+root_logger = logging.getLogger()
 
 
 def main():
-    if len(sys.argv) != 3:
-        print("Usage: python main.py <input.srt> <output.srt>")
-        print("Example: python main.py input/TheMatrix.srt output/TheMatrix.ar.srt")
+    if len(sys.argv) < 3:
+        print("Usage: python main.py <input.srt> <output.srt> [--debug]")
+        print("Example: python main.py input/TheMatrix.srt output/TheMatrix.ar.srt --debug")
         sys.exit(1)
 
     input_path = sys.argv[1]
     output_path = sys.argv[2]
+    debug = "--debug" in sys.argv
+
+    if debug:
+        root_logger.setLevel(logging.DEBUG)
+        logging.getLogger("openai").setLevel(logging.DEBUG)
+        logging.debug("DEBUG MODE enabled — verbose logging active")
 
     # Auto-create input/output directories if needed
     Path(input_path).parent.mkdir(parents=True, exist_ok=True)

@@ -14,8 +14,10 @@ Key Rules:
 """
 
 BATCH_PROMPT = """Translate the following {count} English subtitle entries to Arabic.
-Return exactly {count} lines, one translation per line, in order.
-Do NOT add numbers, labels, or any extra text.
 
-{entries}
-"""
+CRITICAL: Return EXACTLY {count} lines. No more, no less.
+- One translation per line, in the same order.
+- Do NOT add numbers, labels, commentary, or any extra text.
+- Do NOT add blank lines.
+
+{entries}"""
