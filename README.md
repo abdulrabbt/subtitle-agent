@@ -24,7 +24,7 @@ subtitle-agent/
 ├── .env.example          # Template
 ├── requirements.txt      # langgraph, openai, srt, python-dotenv, pydantic
 ├── main.py               # CLI: python main.py TheMatrix.srt TheMatrix.ar.srt
-├── PLAN.md               # This file — architecture documentation
+├── README.md             # This file — architecture documentation
 └── src/
     ├── __init__.py        # Package marker
     ├── prompts.py         # Translation prompt for movie/TV Arabic
@@ -52,7 +52,7 @@ subtitle-agent/
 | 2   | `checkpoint`      | Load JSON checkpoint (if any)                | `checkpoint.py`                  |
 | 3   | `translate`       | Translate batch + validate + retry           | `translator.py` + `validator.py` |
 | 4   | `save_ckpt`       | Save JSON checkpoint                         | `checkpoint.py`                  |
-| 5   | `write`           | Compose &.srt, delete checkpoint             | `parser.py` + `checkpoint.py`    |
+| 5   | `write`           | Compose .srt, delete checkpoint              | `parser.py` + `checkpoint.py`    |
 | —   | `should_continue` | Router: `translate` if more, `write` if done | (inline in agent.py)             |
 
 ### State Definition (matches `src/agent.py`)
@@ -64,7 +64,7 @@ class TranslationState(TypedDict):
     entries: list         # Parsed SRT entries [{index, start, end, content}]
     current_index: int    # Resume point (0-based)
     translated: list[str] # Completed Arabic translations
-    batch_size: int       # Entries per LLM call (default: 10)
+    batch_size: int       # Entries per LLM call (default: 50)
     errors: list[str]     # Error log
     done: bool            # Translation complete flag
 ```
@@ -72,10 +72,10 @@ class TranslationState(TypedDict):
 ## Translation Flow (per batch)
 
 ```
-Translate Batch (10 entries)
+Translate Batch (50 entries)
     │
-    ├─ Call DeepSeek API (deepseek-chat)
-    ├─ Validate response (line count == 10)
+    ├─ Call DeepSeek API (deepseek-v4-flash or deepseek-v4-pro via DEEPSEEK_MODEL)
+    ├─ Validate response (line count == 50)
     │   ├─ Valid → save to state.translated
     │   └─ Invalid → retry (up to 3 attempts)
     └─ On exception → save checkpoint, raise error for resume
