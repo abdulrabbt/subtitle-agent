@@ -84,6 +84,8 @@ def translate_with_retry(
             is_valid, lines = validate_batch_response(response, expected)
 
             if is_valid:
+                # Restore natural line breaks flattened with " / " during serialization
+                lines = [line.replace(" / ", "\n") for line in lines]
                 return lines
 
             logger.warning(

@@ -47,7 +47,7 @@ def translate_batch(
 
     client = get_client()
     count = len(entries)
-    numbered = "\n".join(entries)
+    numbered = "\n".join(e.replace("\n", " / ") for e in entries)
 
     batch_prompt = batch_prompt_template.format(count=count, entries=numbered)
 

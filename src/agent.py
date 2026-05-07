@@ -12,7 +12,7 @@ from src.prompts import SYSTEM_PROMPT, BATCH_PROMPT
 
 logger = logging.getLogger(__name__)
 
-BATCH_SIZE = 10
+BATCH_SIZE = 50
 
 
 class TranslationState(TypedDict):
