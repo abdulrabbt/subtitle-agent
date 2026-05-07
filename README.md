@@ -22,17 +22,25 @@ A **LangGraph-based AI agent** that translates English `.srt` subtitle files to 
 subtitle-agent/
 ├── .env                  # DEEPSEEK_API_KEY=sk-... (user fills manually)
 ├── .env.example          # Template
-├── requirements.txt      # langgraph, openai, srt, python-dotenv, pydantic
-├── main.py               # CLI: python main.py TheMatrix.srt TheMatrix.ar.srt
+├── requirements.txt      # langgraph, openai, srt, python-dotenv, pydantic, pytest
+├── main.py               # CLI: python main.py TheMatrix.srt TheMatrix.ar.srt [--debug]
 ├── README.md             # This file — architecture documentation
-└── src/
-    ├── __init__.py        # Package marker
-    ├── prompts.py         # Translation prompt for movie/TV Arabic
-    ├── parser.py          # SRT parse/write — timestamps NEVER touched
-    ├── checkpoint.py      # JSON checkpoint read/write for resume support
-    ├── translator.py      # DeepSeek API client (OpenAI-compatible)
-    ├── validator.py       # Response validation + 3x retry logic
-    └── agent.py           # LangGraph state machine (5 nodes + router)
+├── src/
+│   ├── __init__.py        # Package marker
+│   ├── prompts.py         # Translation prompt for movie/TV Arabic
+│   ├── parser.py          # SRT parse/write — timestamps NEVER touched
+│   ├── checkpoint.py      # JSON checkpoint read/write for resume support
+│   ├── translator.py      # DeepSeek API client (OpenAI-compatible)
+│   ├── validator.py       # Response validation + fuzzy recovery + 3x retry
+│   └── agent.py           # LangGraph state machine (5 nodes + router)
+└── tests/
+    ├── __init__.py
+    ├── test_agent.py
+    ├── test_checkpoint.py
+    ├── test_parser.py
+    ├── test_prompts.py
+    ├── test_translator.py
+    └── test_validator.py
 ```
 
 ## LangGraph Workflow
@@ -74,20 +82,32 @@ class TranslationState(TypedDict):
 ```
 Translate Batch (50 entries)
     │
-    ├─ Call DeepSeek API (deepseek-v4-flash or deepseek-v4-pro via DEEPSEEK_MODEL)
+    ├─ Call DeepSeek API (deepseek-v4-flash default; configurable via DEEPSEEK_MODEL)
     ├─ Validate response (line count == 50)
     │   ├─ Valid → save to state.translated
-    │   └─ Invalid → retry (up to 3 attempts)
+    │   ├─ Extra lines → fuzzy recovery: take first 50, discard extras
+    │   └─ Too few lines → retry (up to 3 attempts)
     └─ On exception → save checkpoint, raise error for resume
 ```
 
 ## Quality Assurance
 
-| Layer                      | Status         | Description                                                     |
-| -------------------------- | -------------- | --------------------------------------------------------------- |
-| **Timestamp Preservation** | ✅ Implemented | `srt` library handles timestamps — only `.content` is replaced  |
-| **Response Validation**    | ✅ Implemented | Checks line count matches batch size; 3x auto-retry on mismatch |
-| **LLM Self-Review**        | 🔜 Planned     | Optional second-pass QA for natural Arabic & cultural fit       |
+| Layer                      | Status         | Description                                                                                                                                   |
+| -------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Timestamp Preservation** | ✅ Implemented | `srt` library handles timestamps — only `.content` is replaced                                                                                |
+| **RTL Formatting**         | ✅ Implemented | Arabic text is automatically wrapped in Unicode RLE/PDF markers (`\u202B`...`\u202C`) for correct bidirectional rendering in subtitle players |
+| **Response Validation**    | ✅ Implemented | Checks line count matches batch size; fuzzy recovery for extra lines; 3x auto-retry on mismatch                                               |
+| **LLM Self-Review**        | 🔜 Planned     | Optional second-pass QA for natural Arabic & cultural fit                                                                                     |
+
+## Environment Variables
+
+Set via `.env` file (copy from `.env.example`):
+
+| Variable            | Required | Default                       | Description                          |
+| ------------------- | -------- | ----------------------------- | ------------------------------------ |
+| `DEEPSEEK_API_KEY`  | ✅ Yes   | —                             | DeepSeek API key                     |
+| `DEEPSEEK_BASE_URL` | No       | `https://api.deepseek.com/v1` | DeepSeek API endpoint                |
+| `DEEPSEEK_MODEL`    | No       | `deepseek-v4-flash`           | Model name (e.g., `deepseek-v4-pro`) |
 
 ## Resume Logic
 
@@ -122,9 +142,14 @@ cp .env.example .env
 # Translate (movie name = filename)
 python main.py TheMatrix.srt TheMatrix.ar.srt
 
+# Enable debug mode for verbose logging (API calls, raw responses, validation details)
+python main.py TheMatrix.srt TheMatrix.ar.srt --debug
+
 # If it fails at entry 150, just re-run — auto-resumes!
 python main.py TheMatrix.srt TheMatrix.ar.srt
 ```
+
+> **Note:** `main.py` automatically creates parent directories for input/output paths if they don't exist.
 
 ## Dependencies (`requirements.txt`)
 
@@ -134,4 +159,5 @@ openai>=1.0.0
 srt>=3.5.0
 python-dotenv>=1.0.0
 pydantic>=2.0.0
+pytest>=8.0.0
 ```
