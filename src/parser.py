@@ -1,7 +1,28 @@
 """SRT file parser and writer. Timestamps are NEVER modified — only text content is replaced."""
 
+import re
 import srt
 from pathlib import Path
+
+# Unicode range covering Arabic, Persian, Urdu scripts
+_ARABIC_RANGE = re.compile(
+    r'[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]'
+)
+
+
+def _wrap_rtl(text: str) -> str:
+    """Wrap text with RLE/PDF markers if it contains Arabic-script characters.
+
+    RLE (\\u202B) forces the renderer to treat the block as right-to-left.
+    PDF (\\u202C) pops the directional formatting.
+
+    Without these markers, neutral punctuation (., !, ?, etc.) can flip
+    to the wrong side and LTR runs (numbers, English words) can render
+    in reverse order when displayed in subtitle players / editors.
+    """
+    if _ARABIC_RANGE.search(text):
+        return f"\u202B{text}\u202C"
+    return text
 
 
 def parse_srt(filepath: str) -> list[dict]:
@@ -40,7 +61,7 @@ def write_srt(output_path: str, entries: list[dict]) -> None:
             index=e["index"],
             start=e["start"],
             end=e["end"],
-            content=e["content"],
+            content=_wrap_rtl(e["content"]),
         )
         for e in entries
     ]
