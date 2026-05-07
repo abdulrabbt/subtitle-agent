@@ -1,10 +1,21 @@
 """Response validation and retry logic for translation batches."""
 
 import logging
+import time
+
+from openai import (
+    APIError,
+    APITimeoutError,
+    RateLimitError,
+    APIConnectionError,
+    InternalServerError,
+)
 
 logger = logging.getLogger(__name__)
 
 MAX_RETRIES = 3
+API_RETRIES = 4
+RETRY_DELAYS = [2, 4, 8, 16]
 
 
 def validate_batch_response(
@@ -56,16 +67,78 @@ def validate_batch_response(
     return True, lines
 
 
+def _retry_on_api_error(fn, *args, **kwargs):
+    """Call a function with exponential backoff retry on transient API errors.
+
+    Retries on: timeout, rate limit, connection, server errors.
+    Impossible on: bad request (400) — our fault, retrying won't help.
+
+    Returns the function's return value on success.
+    Raises RuntimeError if all API retries are exhausted.
+    """
+    last_exception = None
+    for attempt in range(API_RETRIES):
+        try:
+            return fn(*args, **kwargs)
+        except (APITimeoutError, RateLimitError, APIConnectionError, InternalServerError) as e:
+            last_exception = e
+            if attempt < API_RETRIES - 1:
+                delay = RETRY_DELAYS[attempt]
+                logger.warning(
+                    "%s on API attempt %d/%d — retrying in %ds...",
+                    type(e).__name__,
+                    attempt + 1,
+                    API_RETRIES,
+                    delay,
+                )
+                time.sleep(delay)
+            else:
+                logger.error(
+                    "%s on final API attempt %d/%d — giving up",
+                    type(e).__name__,
+                    attempt + 1,
+                    API_RETRIES,
+                )
+        except APIError as e:
+            # Generic APIError — retry if it looks transient, raise otherwise
+            status = getattr(e, "status_code", None)
+            if status and 400 <= status < 500 and status != 429:
+                raise
+            last_exception = e
+            if attempt < API_RETRIES - 1:
+                delay = RETRY_DELAYS[attempt]
+                logger.warning(
+                    "APIError (status %s) on attempt %d/%d — retrying in %ds...",
+                    status,
+                    attempt + 1,
+                    API_RETRIES,
+                    delay,
+                )
+                time.sleep(delay)
+            else:
+                logger.error(
+                    "APIError on final attempt %d/%d — giving up",
+                    attempt + 1,
+                    API_RETRIES,
+                )
+
+    raise RuntimeError(
+        f"API call failed after {API_RETRIES} retries. "
+        f"Last error: {last_exception}"
+    )
+
+
 def translate_with_retry(
     translator_fn,
     entries: list[str],
     system_prompt: str,
     batch_prompt_template: str,
 ) -> list[str]:
-    """Call translator with automatic retry on validation failure.
+    """Call translator with automatic retry on API errors and validation failures.
 
-    If validation fails, logs the raw API response at DEBUG level so users
-    can inspect what the LLM returned. Run with --debug to see these logs.
+    Two-layer retry:
+      1. API errors (timeout, rate limit, connection, 5xx) → exponential backoff
+      2. Validation failures (wrong line count) → up to MAX_RETRIES attempts
 
     Returns list of translated lines. Raises RuntimeError if all retries fail.
     """
@@ -74,13 +147,15 @@ def translate_with_retry(
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             logger.debug(
-                "Attempt %d/%d: sending %d entries to DeepSeek:\n%s",
+                "Validation attempt %d/%d: sending %d entries to DeepSeek:\n%s",
                 attempt,
                 MAX_RETRIES,
                 expected,
                 "\n".join(entries),
             )
-            response = translator_fn(entries, system_prompt, batch_prompt_template)
+            response = _retry_on_api_error(
+                translator_fn, entries, system_prompt, batch_prompt_template
+            )
             is_valid, lines = validate_batch_response(response, expected)
 
             if is_valid:
@@ -99,14 +174,11 @@ def translate_with_retry(
                 response,
             )
 
-        except Exception as e:
-            logger.error(
-                "API error on attempt %d/%d: %s", attempt, MAX_RETRIES, str(e)
-            )
-            if attempt == MAX_RETRIES:
-                raise
+        except RuntimeError:
+            # API retries exhausted inside _retry_on_api_error — re-raise
+            raise
 
     raise RuntimeError(
-        f"Translation failed after {MAX_RETRIES} retries. "
+        f"Translation failed after {MAX_RETRIES} validation retries. "
         f"Checkpoint saved — you can resume from this point."
     )

@@ -54,6 +54,7 @@ def translate_batch(
     response = client.chat.completions.create(
         model=model,
         temperature=temperature,
+        timeout=180,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": batch_prompt},
