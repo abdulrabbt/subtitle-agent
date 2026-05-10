@@ -26,6 +26,8 @@ def fresh_state(**overrides) -> TranslationState:
     s: TranslationState = {
         "input_path": "input/test.srt",
         "output_path": "output/test.ar.srt",
+        "source_lang": "en",
+        "target_lang": "ar",
         "entries": [],
         "current_index": 0,
         "translated": [],
@@ -234,7 +236,7 @@ class TestNodeWrite:
         assert written_entries[1]["content"] == "\u0627\u0644\u0639\u0627\u0644\u0645"
         assert written_entries[0]["index"] == 1
         assert written_entries[0]["start"] == datetime.timedelta(0)
-        mock_write.assert_called_once_with("output/test.ar.srt", written_entries)
+        mock_write.assert_called_once_with("output/test.ar.srt", written_entries, "ar")
         mock_delete.assert_called_once_with("input/test.srt")
 
     @patch("src.agent.delete_checkpoint")

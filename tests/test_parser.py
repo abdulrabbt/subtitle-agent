@@ -15,23 +15,23 @@ from src.parser import parse_srt, write_srt, _wrap_rtl
 # ---------------------------------------------------------------------------
 class TestWrapRtl:
     def test_pure_arabic_gets_wrapped(self):
-        result = _wrap_rtl("\u0645\u0631\u062d\u0628\u0627")
+        result = _wrap_rtl("\u0645\u0631\u062d\u0628\u0627", "ar")
         assert result == "\u202B\u0645\u0631\u062d\u0628\u0627\u202C"
 
     def test_mixed_arabic_and_digits_gets_wrapped(self):
-        result = _wrap_rtl("\u0631\u062d\u0644\u0629 847")
+        result = _wrap_rtl("\u0631\u062d\u0644\u0629 847", "ar")
         assert result == "\u202B\u0631\u062d\u0644\u0629 847\u202C"
 
     def test_pure_english_not_wrapped(self):
-        result = _wrap_rtl("Hello world")
+        result = _wrap_rtl("Hello world", "ar")
         assert result == "Hello world"
 
     def test_empty_string_not_wrapped(self):
-        result = _wrap_rtl("")
+        result = _wrap_rtl("", "ar")
         assert result == ""
 
     def test_persian_gets_wrapped(self):
-        result = _wrap_rtl("\u0633\u0644\u0627\u0645")
+        result = _wrap_rtl("\u0633\u0644\u0627\u0645", "fa")
         assert result.startswith("\u202B")
         assert result.endswith("\u202C")
 
