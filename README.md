@@ -2,7 +2,7 @@
 
 ## Overview
 
-A **LangGraph-based AI agent** that translates English `.srt` subtitle files to Arabic using **DeepSeek V4 Pro**. It preserves timestamps, supports **resume-from-failure**, and produces movie/TV-appropriate translations. Filenames use the movie/show name (e.g., `TheMatrix.srt` → `TheMatrix.ar.srt`).
+A **LangGraph-based AI agent** that translates `.srt` subtitle files using **DeepSeek V4 Pro**. Supports 23+ language pairs (English, Arabic, Chinese, Japanese, Korean, French, German, Spanish, Portuguese, Russian, Italian, Turkish, Hindi, Thai, Vietnamese, Bengali, Persian, Hebrew, Urdu, Pashto, Sindhi, Uyghur, Divehi, Yiddish, Kurdish). Preserves timestamps, supports **resume-from-failure**, and produces movie/TV-appropriate translations with automatic RTL handling.
 
 ## Tech Stack
 
@@ -23,11 +23,11 @@ subtitle-agent/
 ├── .env                  # DEEPSEEK_API_KEY=sk-... (user fills manually)
 ├── .env.example          # Template
 ├── requirements.txt      # langgraph, openai, srt, python-dotenv, pydantic, pytest
-├── main.py               # CLI: python main.py TheMatrix.srt TheMatrix.ar.srt [--debug]
+├── main.py               # CLI: python main.py <input.srt> <output.srt> [--source-lang CODE] [--target-lang CODE] [--debug]
 ├── README.md             # This file — architecture documentation
 ├── src/
 │   ├── __init__.py        # Package marker
-│   ├── prompts.py         # Translation prompt for movie/TV Arabic
+│   ├── prompts.py         # Dynamic system prompts for 23+ language pairs with RTL support
 │   ├── parser.py          # SRT parse/write — timestamps NEVER touched
 │   ├── checkpoint.py      # JSON checkpoint read/write for resume support
 │   ├── translator.py      # DeepSeek API client (OpenAI-compatible)
@@ -69,9 +69,11 @@ subtitle-agent/
 class TranslationState(TypedDict):
     input_path: str       # Source .srt file path
     output_path: str      # Destination .srt file path
+    source_lang: str      # Source language code (e.g., 'en')
+    target_lang: str      # Target language code (e.g., 'ar')
     entries: list         # Parsed SRT entries [{index, start, end, content}]
     current_index: int    # Resume point (0-based)
-    translated: list[str] # Completed Arabic translations
+    translated: list[str] # Completed translations
     batch_size: int       # Entries per LLM call (default: 50)
     errors: list[str]     # Error log
     done: bool            # Translation complete flag
@@ -92,12 +94,12 @@ Translate Batch (50 entries)
 
 ## Quality Assurance
 
-| Layer                      | Status         | Description                                                                                                                                   |
-| -------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Timestamp Preservation** | ✅ Implemented | `srt` library handles timestamps — only `.content` is replaced                                                                                |
-| **RTL Formatting**         | ✅ Implemented | Arabic text is automatically wrapped in Unicode RLE/PDF markers (`\u202B`...`\u202C`) for correct bidirectional rendering in subtitle players |
-| **Response Validation**    | ✅ Implemented | Checks line count matches batch size; fuzzy recovery for extra lines; 3x auto-retry on mismatch                                               |
-| **LLM Self-Review**        | 🔜 Planned     | Optional second-pass QA for natural Arabic & cultural fit                                                                                     |
+| Layer                      | Status         | Description                                                                                                                                                                      |
+| -------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Timestamp Preservation** | ✅ Implemented | `srt` library handles timestamps — only `.content` is replaced                                                                                                                   |
+| **RTL Formatting**         | ✅ Implemented | RTL text (Arabic, Persian, Hebrew, Urdu, etc.) is automatically wrapped in Unicode RLE/PDF markers (`\u202B`...`\u202C`) for correct bidirectional rendering in subtitle players |
+| **Response Validation**    | ✅ Implemented | Checks line count matches batch size; fuzzy recovery for extra lines; 3x auto-retry on mismatch                                                                                  |
+| **LLM Self-Review**        | 🔜 Planned     | Optional second-pass QA for naturalness & cultural fit across all target languages                                                                                               |
 
 ## Environment Variables
 
@@ -108,6 +110,8 @@ Set via `.env` file (copy from `.env.example`):
 | `DEEPSEEK_API_KEY`  | ✅ Yes   | —                             | DeepSeek API key                     |
 | `DEEPSEEK_BASE_URL` | No       | `https://api.deepseek.com/v1` | DeepSeek API endpoint                |
 | `DEEPSEEK_MODEL`    | No       | `deepseek-v4-flash`           | Model name (e.g., `deepseek-v4-pro`) |
+| `SOURCE_LANG`       | No       | `en`                          | Default source language code         |
+| `TARGET_LANG`       | No       | `ar`                          | Default target language code         |
 
 ## Resume Logic
 
@@ -139,8 +143,14 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env: DEEPSEEK_API_KEY=sk-your-real-key
 
-# Translate (movie name = filename)
+# Translate English to Arabic (default)
 python main.py TheMatrix.srt TheMatrix.ar.srt
+
+# Translate to another language (23+ supported)
+python main.py TheMatrix.srt TheMatrix.fr.srt --target-lang fr
+
+# Specify both source and target languages
+python main.py TheMatrix.srt TheMatrix.es.srt --source-lang en --target-lang es
 
 # Enable debug mode for verbose logging (API calls, raw responses, validation details)
 python main.py TheMatrix.srt TheMatrix.ar.srt --debug
