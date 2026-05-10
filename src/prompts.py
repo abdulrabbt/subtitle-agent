@@ -5,7 +5,7 @@ RTL_LANGS = frozenset({"ar", "fa", "he", "ur", "ps", "sd", "ug", "dv", "yi", "ku
 
 # Per-language stylistic guidance for the system prompt
 LANG_STYLE_NOTES: dict[str, str] = {
-    "ar": "Use Modern Standard Arabic (Fusha). Sound natural to a viewer — not robotic, not overly formal, and not dialect.",
+    "ar": "Use 'White Dialect' (Ammiya al-Baida). Strictly avoid formal Fusha and archaic grammar. Use natural, contemporary vocabulary understood by all Arabic speakers. It should sound like a real person in a modern drama—emotional, punchy, and concise.",
     "zh": "Use Simplified Chinese (Mandarin) with natural, conversational phrasing.",
     "ja": "Use natural Japanese with appropriate politeness level for the context.",
     "ko": "Use natural Korean with appropriate speech levels.",
