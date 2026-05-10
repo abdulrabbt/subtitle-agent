@@ -2,7 +2,7 @@
 
 ## Overview
 
-A **LangGraph-based AI agent** that translates `.srt` subtitle files using **DeepSeek V4 Pro**. Supports 23+ language pairs (English, Arabic, Chinese, Japanese, Korean, French, German, Spanish, Portuguese, Russian, Italian, Turkish, Hindi, Thai, Vietnamese, Bengali, Persian, Hebrew, Urdu, Pashto, Sindhi, Uyghur, Divehi, Yiddish, Kurdish). Preserves timestamps, supports **resume-from-failure**, and produces movie/TV-appropriate translations with automatic RTL handling.
+A **LangGraph-based AI agent** that translates `.srt` subtitle files using **any AI model (OpenAI-compatible API)**. Supports 23+ language pairs (English, Arabic, Chinese, Japanese, Korean, French, German, Spanish, Portuguese, Russian, Italian, Turkish, Hindi, Thai, Vietnamese, Bengali, Persian, Hebrew, Urdu, Pashto, Sindhi, Uyghur, Divehi, Yiddish, Kurdish). Preserves timestamps, supports **resume-from-failure**, and produces movie/TV-appropriate translations with automatic RTL handling.
 
 ## Tech Stack
 
@@ -10,7 +10,7 @@ A **LangGraph-based AI agent** that translates `.srt` subtitle files using **Dee
 | ------------- | ------------------------- |
 | Language      | Python 3.10+              |
 | Orchestration | LangGraph                 |
-| LLM Provider  | DeepSeek V4 Pro           |
+| LLM Provider  | any AI model (OpenAI-compatible API)           |
 | API Library   | `openai` (compatible API) |
 | SRT Parsing   | `srt` library             |
 | Checkpoints   | JSON file per input       |
