@@ -4,6 +4,8 @@ import os
 from openai import OpenAI
 from dotenv import load_dotenv
 
+from src.prompts import build_system_prompt, BATCH_PROMPT
+
 load_dotenv()
 
 _client: OpenAI | None = None
@@ -30,13 +32,13 @@ def translate_batch(
     model: str | None = None,
     temperature: float = 0.3,
 ) -> str:
-    """Send a batch of English subtitle entries to DeepSeek for translation.
+    """Send a batch of subtitle entries to the LLM for translation.
 
     Args:
-        entries: List of English subtitle texts to translate.
+        entries: List of subtitle texts to translate.
         system_prompt: System-level instructions for the LLM.
         batch_prompt_template: Template string with {count} and {entries} placeholders.
-        model: DeepSeek model name. Defaults to DEEPSEEK_MODEL from .env, then "deepseek-chat".
+        model: Model name. Defaults to DEEPSEEK_MODEL from .env, then "deepseek-v4-flash".
         temperature: LLM temperature (lower = more consistent).
 
     Returns:

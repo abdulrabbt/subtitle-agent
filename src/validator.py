@@ -147,7 +147,7 @@ def translate_with_retry(
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             logger.debug(
-                "Validation attempt %d/%d: sending %d entries to DeepSeek:\n%s",
+                "Validation attempt %d/%d: sending %d entries to LLM:\n%s",
                 attempt,
                 MAX_RETRIES,
                 expected,

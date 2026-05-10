@@ -8,7 +8,7 @@ from src.parser import parse_srt, write_srt
 from src.checkpoint import load_checkpoint, save_checkpoint, delete_checkpoint
 from src.translator import translate_batch
 from src.validator import translate_with_retry
-from src.prompts import SYSTEM_PROMPT, BATCH_PROMPT
+from src.prompts import build_system_prompt, BATCH_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +19,8 @@ class TranslationState(TypedDict):
     """State shared across all LangGraph nodes."""
     input_path: str
     output_path: str
+    source_lang: str
+    target_lang: str
     entries: list
     current_index: int
     translated: list[str]
@@ -80,11 +82,15 @@ def node_translate_batch(state: TranslationState) -> TranslationState:
         len(entries),
     )
 
+    system_prompt = build_system_prompt(
+        state["source_lang"], state["target_lang"]
+    )
+
     try:
         translations = translate_with_retry(
             translate_batch,
             batch_texts,
-            SYSTEM_PROMPT,
+            system_prompt,
             BATCH_PROMPT,
         )
     except Exception as e:
@@ -127,15 +133,15 @@ def node_write(state: TranslationState) -> TranslationState:
 
     output_entries = []
     for i, entry in enumerate(entries):
-        arabic_text = translated[i] if i < len(translated) else entry["content"]
+        target_text = translated[i] if i < len(translated) else entry["content"]
         output_entries.append({
             "index": entry["index"],
             "start": entry["start"],
             "end": entry["end"],
-            "content": arabic_text,
+            "content": target_text,
         })
 
-    write_srt(state["output_path"], output_entries)
+    write_srt(state["output_path"], output_entries, state["target_lang"])
     logger.info("Wrote translated SRT: %s", state["output_path"])
 
     delete_checkpoint(state["input_path"])
@@ -171,12 +177,19 @@ def build_graph() -> StateGraph:
     return graph
 
 
-def run_translation(input_path: str, output_path: str) -> None:
+def run_translation(
+    input_path: str,
+    output_path: str,
+    source_lang: str = "en",
+    target_lang: str = "ar",
+) -> None:
     """Run the full translation pipeline.
 
     Args:
-        input_path: Path to English .srt file (e.g., input/TheMatrix.srt).
-        output_path: Path for Arabic .srt output (e.g., output/TheMatrix.ar.srt).
+        input_path: Path to source .srt file (e.g., input/TheMatrix.srt).
+        output_path: Path for translated .srt output (e.g., output/TheMatrix.ar.srt).
+        source_lang: Source language code (default: 'en').
+        target_lang: Target language code (default: 'ar').
     """
     graph = build_graph()
     app = graph.compile()
@@ -184,6 +197,8 @@ def run_translation(input_path: str, output_path: str) -> None:
     initial_state: TranslationState = {
         "input_path": input_path,
         "output_path": output_path,
+        "source_lang": source_lang,
+        "target_lang": target_lang,
         "entries": [],
         "current_index": 0,
         "translated": [],
@@ -192,7 +207,13 @@ def run_translation(input_path: str, output_path: str) -> None:
         "done": False,
     }
 
-    logger.info("Starting translation: %s -> %s", input_path, output_path)
+    logger.info(
+        "Starting translation [%s → %s]: %s -> %s",
+        source_lang,
+        target_lang,
+        input_path,
+        output_path,
+    )
     final_state = app.invoke(initial_state)
 
     total = len(final_state["entries"])

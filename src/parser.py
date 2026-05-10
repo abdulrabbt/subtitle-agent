@@ -9,9 +9,12 @@ _ARABIC_RANGE = re.compile(
     r'[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]'
 )
 
+# Language codes for RTL scripts (matching prompts.py RTL_LANGS)
+_RTL_LANGS = frozenset({"ar", "fa", "he", "ur", "ps", "sd", "ug", "dv", "yi", "ku"})
 
-def _wrap_rtl(text: str) -> str:
-    """Wrap text with RLE/PDF markers if it contains Arabic-script characters.
+
+def _wrap_rtl(text: str, target_lang: str) -> str:
+    """Wrap text with RLE/PDF markers if target language uses an RTL script.
 
     RLE (\\u202B) forces the renderer to treat the block as right-to-left.
     PDF (\\u202C) pops the directional formatting.
@@ -19,8 +22,15 @@ def _wrap_rtl(text: str) -> str:
     Without these markers, neutral punctuation (., !, ?, etc.) can flip
     to the wrong side and LTR runs (numbers, English words) can render
     in reverse order when displayed in subtitle players / editors.
+
+    Args:
+        text: The translated text to potentially wrap.
+        target_lang: Target language code (e.g., 'ar').
+
+    Returns:
+        Wrapped text if target is RTL, otherwise the original text unchanged.
     """
-    if _ARABIC_RANGE.search(text):
+    if target_lang in _RTL_LANGS and _ARABIC_RANGE.search(text):
         return f"\u202B{text}\u202C"
     return text
 
@@ -49,19 +59,20 @@ def parse_srt(filepath: str) -> list[dict]:
     ]
 
 
-def write_srt(output_path: str, entries: list[dict]) -> None:
+def write_srt(output_path: str, entries: list[dict], target_lang: str = "ar") -> None:
     """Write translated entries back to .srt format.
 
     entries: list of {index, start, end, content} where:
     - start, end are datetime.timedelta objects (pass-through from parse_srt)
-    - content is the Arabic translated text
+    - content is the translated text
+    target_lang: Target language code for RTL wrapping decision.
     """
     srt_entries = [
         srt.Subtitle(
             index=e["index"],
             start=e["start"],
             end=e["end"],
-            content=_wrap_rtl(e["content"]),
+            content=_wrap_rtl(e["content"], target_lang),
         )
         for e in entries
     ]
