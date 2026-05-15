@@ -6,20 +6,20 @@ A **LangGraph-based AI agent** that translates `.srt` subtitle files using **any
 
 ## Tech Stack
 
-| Component     | Choice                    |
-| ------------- | ------------------------- |
-| Language      | Python 3.10+              |
-| Orchestration | LangGraph                 |
-| LLM Provider  | any AI model (OpenAI-compatible API)           |
-| API Library   | `openai` (compatible API) |
-| SRT Parsing   | `srt` library             |
-| Checkpoints   | JSON file per input       |
-| Config        | `.env` file               |
+| Component     | Choice                               |
+| ------------- | ------------------------------------ |
+| Language      | Python 3.10+                         |
+| Orchestration | LangGraph                            |
+| LLM Provider  | any AI model (OpenAI-compatible API) |
+| API Library   | `openai` (compatible API)            |
+| SRT Parsing   | `srt` library                        |
+| Checkpoints   | JSON file per input                  |
+| Config        | `.env` file                          |
 
 ## File Structure
 
 ```
-subtitle-agent/
+subtitle-translation-agent/
 ├── .env                  # DEEPSEEK_API_KEY=sk-... (user fills manually)
 ├── .env.example          # Template
 ├── requirements.txt      # langgraph, openai, srt, python-dotenv, pydantic, pytest
